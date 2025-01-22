@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html style="background: transparent;">
+<head>
+    <meta charset="UTF-8">
+    <title>Voice Typing</title>
+    <link href="dist/styles.css" rel="stylesheet">
+    <style>
+        html, body {
+            margin: 0;
+            padding: 0;
+            height: 100vh;
+            overflow: hidden;
+            background: transparent;
+        }
+        #container {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            display: flex;
+            align-items: flex-start;
+            justify-content: flex-start;
+            background: transparent;
+            pointer-events: none;
+        }
+        #app {
+            pointer-events: auto;
+            margin: 2px;
+        }
+    </style>
+</head>
+<body>
+    <div id="container">
+        <div id="app" class="w-[70px] shadow-sm rounded-lg overflow-hidden" style="background: rgba(255, 255, 255, 0.98);">
+            <!-- Titlebar -->
+            <div class="titlebar h-5 flex items-center justify-end px-1" style="background: rgba(249, 250, 251, 0.98);">
+                <div class="flex items-center space-x-0.5">
+                    <button id="settingsButton" class="text-gray-400 hover:text-gray-600 hover:bg-gray-100 p-0.5 rounded-sm transition-colors">
+                        <svg class="w-2.5 h-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                        </svg>
+                    </button>
+                    <button id="closeButton" class="text-gray-400 hover:text-gray-600 hover:bg-gray-100 p-0.5 rounded-sm transition-colors">
+                        <svg class="w-2.5 h-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                        </svg>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Main Content -->
+            <div class="p-2 flex flex-col items-center justify-center" style="background: rgba(255, 255, 255, 0.98);">
+                <!-- Record Button -->
+                <button id="recordButton" class="w-8 h-8 rounded-full bg-blue-600 hover:bg-blue-700 flex items-center justify-center">
+                    <svg id="micIcon" class="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z" />
+                    </svg>
+                </button>
+                <button id="expandButton" class="hidden"></button>
+
+                <!-- Transcription Area (Hidden by default) -->
+                <div id="expandedContent" class="hidden w-full mt-2">
+                    <div class="relative">
+                        <textarea id="transcription" 
+                            class="w-full h-16 p-1.5 text-[11px] text-gray-700 border rounded-md resize-none focus:outline-none focus:ring-1 focus:ring-blue-500"
+                            placeholder="Start speaking..."></textarea>
+                        <div class="absolute bottom-1 right-1 flex space-x-1">
+                            <button id="aiButton" class="p-1 text-gray-500 hover:text-blue-600 transition-colors" title="AI Rephrase">
+                                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z" />
+                                </svg>
+                            </button>
+                            <button id="copyButton" class="p-1 text-gray-500 hover:text-gray-700 transition-colors" title="Copy">
+                                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 5H6a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2v-1M8 5a2 2 0 002 2h2a2 2 0 002-2M8 5a2 2 0 012-2h2a2 2 0 012 2m0 0h2a2 2 0 012 2v3m2 4H10m0 0l3-3m-3 3l3 3" />
+                                </svg>
+                            </button>
+                        </div>
+                    </div>
+                    <!-- AI Rephrased Text (Hidden by default) -->
+                    <div id="rephrasedContent" class="hidden mt-2">
+                        <div class="relative">
+                            <textarea id="rephrasedText" 
+                                class="w-full h-16 p-1.5 text-[11px] text-gray-700 bg-blue-50 border border-blue-200 rounded-md resize-none focus:outline-none focus:ring-1 focus:ring-blue-500"
+                                placeholder="AI rephrased text will appear here..."
+                                readonly></textarea>
+                            <button id="copyRephrased" class="absolute bottom-1 right-1 p-1 text-gray-500 hover:text-gray-700 transition-colors" title="Copy Rephrased">
+                                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 5H6a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2v-1M8 5a2 2 0 002 2h2a2 2 0 002-2M8 5a2 2 0 012-2h2a2 2 0 012 2m0 0h2a2 2 0 012 2v3m2 4H10m0 0l3-3m-3 3l3 3" />
+                                </svg>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <script src="dist/renderer.js"></script>
+</body>
+</html>

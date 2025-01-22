@@ -1,0 +1,130 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Base styles for the app */
+#app {
+    background: #ffffff;
+    z-index: 1000;
+    position: relative;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
+    border: 1px solid rgba(0, 0, 0, 0.1);
+    transition: all 0.3s ease-in-out;
+}
+
+/* Ensure all content is visible */
+#app * {
+    z-index: 1001;
+}
+
+.titlebar {
+    -webkit-app-region: drag;
+    user-select: none;
+}
+
+.titlebar button {
+    -webkit-app-region: no-drag;
+}
+
+/* Button animations */
+button {
+    transition: all 0.2s ease-in-out;
+}
+
+button:active {
+    transform: scale(0.95);
+}
+
+#recordButton:active {
+    transform: scale(0.9);
+}
+
+/* Hover effects */
+.hover-scale {
+    transition: transform 0.2s ease-in-out;
+}
+
+.hover-scale:hover {
+    transform: scale(1.05);
+}
+
+/* Custom scrollbar */
+::-webkit-scrollbar {
+    width: 8px;
+}
+
+::-webkit-scrollbar-track {
+    background: #f1f1f1;
+    border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb {
+    background: #888;
+    border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+    background: #666;
+}
+
+/* Animations */
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+        transform: translateY(-10px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+@keyframes pulse {
+    0% {
+        box-shadow: 0 0 0 0 rgba(37, 99, 235, 0.4);
+    }
+    70% {
+        box-shadow: 0 0 0 10px rgba(37, 99, 235, 0);
+    }
+    100% {
+        box-shadow: 0 0 0 0 rgba(37, 99, 235, 0);
+    }
+}
+
+.recording {
+    animation: pulse 2s infinite;
+}
+
+/* Windows-style transitions */
+.collapsed {
+    transition: height 0.3s ease-in-out;
+}
+
+.expanded {
+    transition: all 0.3s ease-in-out;
+}
+
+/* Windows-style focus effects */
+.focus-ring {
+    @apply ring-2 ring-blue-500 ring-opacity-50;
+}
+
+/* Windows-style button states */
+.btn-primary {
+    @apply bg-blue-600 text-white hover:bg-blue-700 active:bg-blue-800;
+}
+
+.btn-secondary {
+    @apply bg-gray-100 text-gray-600 hover:bg-gray-200 active:bg-gray-300;
+}
+
+/* Windows-style input focus */
+textarea:focus {
+    @apply outline-none ring-2 ring-blue-500 ring-opacity-50;
+    border-color: transparent;
+}
+
+/* Windows 11 style rounded corners */
+.rounded-win11 {
+    @apply rounded-lg;
+}
