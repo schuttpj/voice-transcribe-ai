@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg width="256" height="256" viewBox="0 0 256 256" fill="none" xmlns="http://www.w3.org/2000/svg">
+    <!-- Background circle -->
+    <circle cx="128" cy="128" r="120" fill="#4A90E2"/>
+    
+    <!-- Microphone body -->
+    <rect x="108" y="48" width="40" height="80" rx="20" fill="white"/>
+    
+    <!-- Microphone stand -->
+    <path d="M88 108C88 88 108 128 128 128C148 128 168 88 168 108V128C168 150.091 150.091 168 128 168C105.909 168 88 150.091 88 128V108Z" fill="white"/>
+    
+    <!-- Text lines -->
+    <rect x="68" y="188" width="120" height="8" rx="4" fill="white"/>
+    <rect x="88" y="208" width="80" height="8" rx="4" fill="white"/>
+</svg> 

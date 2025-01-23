@@ -1,7 +1,7 @@
 {
   "name": "voice-transcribe-ai",
   "version": "1.0.0",
-  "description": "Voice transcription and text rephrasing app",
+  "description": "Voice transcription app with OpenAI integration",
   "main": "dist/main.js",
   "scripts": {
     "start": "electron-forge start",
@@ -23,6 +23,7 @@
     "@electron-forge/plugin-auto-unpack-natives": "^7.6.0",
     "@electron-forge/plugin-fuses": "^7.6.0",
     "@electron-forge/plugin-webpack": "^7.6.0",
+    "@electron/asar": "^3.2.18",
     "@electron/fuses": "^1.8.0",
     "@types/electron": "^1.4.38",
     "@types/electron-store": "^1.3.1",
@@ -30,7 +31,9 @@
     "css-loader": "^7.1.2",
     "electron": "^28.0.0",
     "mini-css-extract-plugin": "^2.9.2",
+    "png-to-ico": "^2.1.8",
     "postcss-loader": "^8.1.1",
+    "sharp": "^0.33.5",
     "ts-loader": "^9.5.1",
     "typescript": "^5.0.0",
     "webpack": "^5.89.0",
@@ -49,10 +52,23 @@
   },
   "config": {
     "forge": {
-      "packagerConfig": {},
+      "packagerConfig": {
+        "icon": "./assets/icon",
+        "asar": true
+      },
       "makers": [
         {
-          "name": "@electron-forge/maker-squirrel"
+          "name": "@electron-forge/maker-squirrel",
+          "config": {
+            "name": "voice_transcribe_ai",
+            "iconUrl": "file://assets/icon.ico",
+            "setupIcon": "assets/icon.ico",
+            "loadingGif": "assets/icon.png",
+            "setupExe": "Voice Transcribe AI Setup.exe",
+            "shortcutName": "Voice Transcribe AI",
+            "createDesktopShortcut": true,
+            "skipUpdateIcon": false
+          }
         },
         {
           "name": "@electron-forge/maker-zip",
