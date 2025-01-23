@@ -1,6 +1,4 @@
 import { OpenAI } from 'openai';
-import * as recorder from 'node-record-lpcm16';
-import { Readable } from 'stream';
 import * as fs from 'fs';
 import * as path from 'path';
 import * as os from 'os';
@@ -12,11 +10,14 @@ export interface AudioLevel {
 
 export class TranscriptionService {
     private openai: OpenAI;
-    private recording: recorder.Recorder | null = null;
-    private chunks: Buffer[] = [];
+    private mediaRecorder: MediaRecorder | null = null;
+    private chunks: Blob[] = [];
     private totalBytesRecorded: number = 0;
     private recordingStartTime: number = 0;
     private onAudioLevel: ((level: AudioLevel) => void) | null = null;
+    private audioContext: AudioContext | null = null;
+    private analyser: AnalyserNode | null = null;
+    private mediaStream: MediaStream | null = null;
 
     constructor(apiKey: string, onAudioLevel?: (level: AudioLevel) => void) {
         console.log('Initializing TranscriptionService...');
@@ -24,49 +25,30 @@ export class TranscriptionService {
         this.onAudioLevel = onAudioLevel || null;
     }
 
-    private calculateAudioLevel(chunk: Buffer): number {
-        // Calculate RMS (Root Mean Square) of the audio chunk
+    getOpenAIClient(): OpenAI {
+        return this.openai;
+    }
+
+    private calculateAudioLevel(analyser: AnalyserNode): number {
+        const array = new Uint8Array(analyser.frequencyBinCount);
+        analyser.getByteFrequencyData(array);
         let sum = 0;
-        for (let i = 0; i < chunk.length; i += 2) {
-            // Convert 16-bit samples to numbers
-            const sample = chunk.readInt16LE(i);
-            sum += sample * sample;
+        for (const value of array) {
+            sum += value;
         }
-        const rms = Math.sqrt(sum / (chunk.length / 2));
-        // Normalize to 0-100 range
-        return Math.min(100, (rms / 32768) * 100);
+        const average = sum / array.length;
+        return Math.min(100, (average / 255) * 100);
     }
 
     async checkMicrophonePermission(): Promise<boolean> {
-        return new Promise<boolean>((resolve) => {
-            try {
-                const testRecording = recorder.record({
-                    sampleRate: 16000,
-                    channels: 1,
-                    audioType: 'wav'
-                });
-
-                // Try to get the first chunk
-                const timeout = setTimeout(() => {
-                    testRecording.stop();
-                    resolve(false);
-                }, 1000);
-
-                testRecording.stream().once('data', () => {
-                    clearTimeout(timeout);
-                    testRecording.stop();
-                    resolve(true);
-                });
-
-                testRecording.stream().once('error', () => {
-                    clearTimeout(timeout);
-                    resolve(false);
-                });
-            } catch (error) {
-                console.error('Error checking microphone permission:', error);
-                resolve(false);
-            }
-        });
+        try {
+            const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+            stream.getTracks().forEach(track => track.stop());
+            return true;
+        } catch (error) {
+            console.error('Error checking microphone permission:', error);
+            return false;
+        }
     }
 
     async startRecording(): Promise<void> {
@@ -82,66 +64,87 @@ export class TranscriptionService {
             this.totalBytesRecorded = 0;
             this.recordingStartTime = Date.now();
             
-            console.log('Configuring recorder with 16kHz sample rate, mono channel...');
+            console.log('Initializing audio context and media stream...');
+            this.audioContext = new AudioContext();
+            this.mediaStream = await navigator.mediaDevices.getUserMedia({ 
+                audio: {
+                    sampleRate: 16000,
+                    channelCount: 1,
+                    echoCancellation: true,
+                    noiseSuppression: true
+                }
+            });
+
+            // Set up audio analysis
+            if (!this.audioContext || !this.mediaStream) {
+                throw new Error('Failed to initialize audio context or media stream');
+            }
+            const source = this.audioContext.createMediaStreamSource(this.mediaStream);
+            this.analyser = this.audioContext.createAnalyser();
+            this.analyser.fftSize = 2048;
+            source.connect(this.analyser);
+
+            // Create MediaRecorder
+            this.mediaRecorder = new MediaRecorder(this.mediaStream, {
+                mimeType: 'audio/webm'
+            });
+
+            this.mediaRecorder.ondataavailable = (event) => {
+                if (event.data.size > 0) {
+                    this.chunks.push(event.data);
+                    this.totalBytesRecorded += event.data.size;
+                    console.log(`Received chunk: ${event.data.size} bytes. Total recorded: ${this.totalBytesRecorded} bytes`);
+                }
+            };
+
+            // Start audio level monitoring
+            if (this.onAudioLevel && this.analyser) {
+                const monitorAudioLevel = () => {
+                    if (this.analyser && this.mediaRecorder?.state === 'recording' && this.onAudioLevel) {
+                        const level = this.calculateAudioLevel(this.analyser);
+                        this.onAudioLevel({
+                            timestamp: Date.now(),
+                            level
+                        });
+                        requestAnimationFrame(monitorAudioLevel);
+                    }
+                };
+                requestAnimationFrame(monitorAudioLevel);
+            }
+
             // Start recording
-            this.recording = recorder.record({
-                sampleRate: 16000,
-                channels: 1,
-                audioType: 'wav'
-            });
-
-            // Wait for the first chunk to ensure recording has started
-            await new Promise<void>((resolve, reject) => {
-                const timeout = setTimeout(() => {
-                    reject(new Error('Recording failed to start within 5 seconds'));
-                }, 5000);
-
-                const stream = this.recording!.stream();
-                
-                stream.once('data', (chunk: Buffer) => {
-                    clearTimeout(timeout);
-                    this.chunks.push(chunk);
-                    this.totalBytesRecorded += chunk.length;
-                    console.log(`Recording started. First chunk received: ${chunk.length} bytes`);
-                    
-                    // Continue collecting chunks
-                    stream.on('data', (chunk: Buffer) => {
-                        this.chunks.push(chunk);
-                        this.totalBytesRecorded += chunk.length;
-                        
-                        // Calculate and emit audio level
-                        if (this.onAudioLevel) {
-                            const level = this.calculateAudioLevel(chunk);
-                            this.onAudioLevel({
-                                timestamp: Date.now(),
-                                level
-                            });
-                        }
-                        
-                        console.log(`Received chunk: ${chunk.length} bytes. Total recorded: ${this.totalBytesRecorded} bytes`);
-                    });
-                    
-                    resolve();
-                });
-
-                stream.on('error', (error) => {
-                    console.error('Recording stream error:', error);
-                    reject(error);
-                });
-            });
-
+            this.mediaRecorder.start(100); // Collect data every 100ms
             console.log('Recording started successfully. Listening for audio...');
         } catch (error) {
             console.error('Error in startRecording:', error);
-            this.recording = null;
-            this.chunks = [];
+            this.cleanup();
             throw error;
         }
     }
 
+    private cleanup() {
+        if (this.mediaRecorder) {
+            if (this.mediaRecorder.state === 'recording') {
+                this.mediaRecorder.stop();
+            }
+            this.mediaRecorder = null;
+        }
+        if (this.mediaStream) {
+            this.mediaStream.getTracks().forEach(track => track.stop());
+            this.mediaStream = null;
+        }
+        if (this.audioContext) {
+            this.audioContext.close();
+            this.audioContext = null;
+        }
+        this.analyser = null;
+        this.chunks = [];
+        this.totalBytesRecorded = 0;
+    }
+
     async stopRecording(): Promise<string> {
         return new Promise((resolve, reject) => {
-            if (!this.recording) {
+            if (!this.mediaRecorder) {
                 reject(new Error('No active recording found'));
                 return;
             }
@@ -149,89 +152,100 @@ export class TranscriptionService {
             console.log(`Stopping recording. Total duration: ${(Date.now() - this.recordingStartTime) / 1000}s`);
             console.log(`Total data collected: ${this.totalBytesRecorded} bytes in ${this.chunks.length} chunks`);
 
-            // Stop recording
-            this.recording.stop();
-            
-            const tempFile = path.join(os.tmpdir(), `recording-${Date.now()}.wav`);
-            console.log(`Creating temporary WAV file: ${tempFile}`);
-            
-            try {
-                // Create a WAV file with proper headers
-                const wavWriter = new (require('wav').FileWriter)(tempFile, {
-                    channels: 1,
-                    sampleRate: 16000,
-                    bitDepth: 16
-                });
+            this.mediaRecorder.onstop = async () => {
+                try {
+                    const tempFile = path.join(os.tmpdir(), `recording-${Date.now()}.webm`);
+                    console.log(`Creating temporary file: ${tempFile}`);
 
-                // Write the audio data
-                const audioData = Buffer.concat(this.chunks);
-                console.log(`Writing ${audioData.length} bytes to WAV file...`);
-                wavWriter.write(audioData);
-                wavWriter.end();
-
-                let finished = false;
-                
-                // Handle both 'done' and 'finish' events
-                const handleCompletion = async () => {
-                    if (finished) return;
-                    finished = true;
+                    // Create a blob from the chunks
+                    const blob = new Blob(this.chunks, { type: 'audio/webm' });
+                    const buffer = await blob.arrayBuffer();
                     
-                    try {
-                        console.log('WAV file written successfully. Starting transcription...');
-                        
-                        // Verify file exists and has content
-                        const stats = fs.statSync(tempFile);
-                        console.log(`Temporary file size: ${stats.size} bytes`);
-                        
-                        if (stats.size === 0) {
-                            throw new Error('Generated WAV file is empty');
-                        }
+                    // Write to temporary file
+                    fs.writeFileSync(tempFile, Buffer.from(buffer));
 
-                        // Create a readable stream from the file
-                        const file = fs.createReadStream(tempFile);
-
-                        console.log('Sending audio to OpenAI Whisper API...');
-                        // Transcribe using OpenAI Whisper
-                        const response = await this.openai.audio.transcriptions.create({
-                            file,
-                            model: 'whisper-1',
-                            language: 'en'
-                        });
-
-                        console.log('Received transcription response:', response.text);
-
-                        // Clean up
-                        fs.unlink(tempFile, (err) => {
-                            if (err) console.error('Failed to delete temporary file:', err);
-                            else console.log('Temporary file deleted successfully');
-                        });
-
-                        this.chunks = [];
-                        this.recording = null;
-                        this.totalBytesRecorded = 0;
-
-                        resolve(response.text);
-                    } catch (error) {
-                        console.error('Error during transcription:', error);
-                        reject(error);
+                    // Verify file exists and has content
+                    const stats = fs.statSync(tempFile);
+                    console.log(`Temporary file size: ${stats.size} bytes`);
+                    
+                    if (stats.size === 0) {
+                        throw new Error('Generated audio file is empty');
                     }
-                };
 
-                wavWriter.on('done', handleCompletion);
-                wavWriter.on('finish', handleCompletion);
+                    // Create a readable stream from the file
+                    const file = fs.createReadStream(tempFile);
 
-                wavWriter.on('error', (error: Error) => {
-                    console.error('Error writing WAV file:', error);
+                    console.log('Sending audio to OpenAI Whisper API...');
+                    // Transcribe using OpenAI Whisper
+                    const response = await this.openai.audio.transcriptions.create({
+                        file,
+                        model: 'whisper-1',
+                        language: 'en'
+                    });
+
+                    console.log('Received transcription response:', response.text);
+
+                    // Clean up
+                    fs.unlink(tempFile, (err) => {
+                        if (err) console.error('Failed to delete temporary file:', err);
+                        else console.log('Temporary file deleted successfully');
+                    });
+
+                    this.cleanup();
+                    resolve(response.text);
+                } catch (error) {
+                    console.error('Error during transcription:', error);
+                    this.cleanup();
                     reject(error);
-                });
-            } catch (error) {
-                console.error('Error in stopRecording:', error);
-                // Clean up
-                fs.unlink(tempFile, (err) => {
-                    if (err) console.error('Failed to delete temporary file:', err);
-                });
-                reject(error);
-            }
+                }
+            };
+
+            // Stop recording
+            this.mediaRecorder.stop();
         });
+    }
+
+    async transcribeAudio(audioData: ArrayBuffer): Promise<string> {
+        const tempFile = path.join(os.tmpdir(), `recording-${Date.now()}.webm`);
+        console.log(`Creating temporary file: ${tempFile}`);
+
+        try {
+            // Write audio data to temporary file
+            fs.writeFileSync(tempFile, Buffer.from(audioData));
+
+            // Verify file exists and has content
+            const stats = fs.statSync(tempFile);
+            console.log(`Temporary file size: ${stats.size} bytes`);
+            
+            if (stats.size === 0) {
+                throw new Error('Generated audio file is empty');
+            }
+
+            // Create a readable stream from the file
+            const file = fs.createReadStream(tempFile);
+
+            console.log('Sending audio to OpenAI Whisper API...');
+            // Transcribe using OpenAI Whisper
+            const response = await this.openai.audio.transcriptions.create({
+                file,
+                model: 'whisper-1',
+                language: 'en'
+            });
+
+            console.log('Received transcription response:', response.text);
+
+            return response.text;
+        } catch (error) {
+            console.error('Error during transcription:', error);
+            throw error;
+        } finally {
+            // Clean up temporary file
+            try {
+                fs.unlinkSync(tempFile);
+                console.log('Temporary file deleted successfully');
+            } catch (err) {
+                console.error('Failed to delete temporary file:', err);
+            }
+        }
     }
 } 

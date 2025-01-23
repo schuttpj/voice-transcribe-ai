@@ -4,12 +4,177 @@
 
 /* Base styles for the app */
 #app {
-    background: #ffffff;
-    z-index: 1000;
-    position: relative;
-    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
+    position: fixed;
+    top: 0;
+    right: 0;
+    width: 86px;  /* Start with enough width for record + settings buttons: 6px + 36px + 6px + 32px + 6px */
+    height: 48px;  /* Fixed height */
+    background-color: rgba(255, 255, 255, 0.98);
+    border-radius: 24px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+    display: flex;
+    align-items: center;
+    justify-content: flex-start;
+    padding: 6px;
+    transition: all 0.3s ease;
     border: 1px solid rgba(0, 0, 0, 0.1);
-    transition: all 0.3s ease-in-out;
+    margin: 8px;
+    gap: 6px;
+    -webkit-app-region: drag;
+    user-select: none;
+    /* Ensure consistent rounding */
+    mask-image: radial-gradient(circle at center, white 100%, black 100%);
+    -webkit-mask-image: -webkit-radial-gradient(circle at center, white 100%, black 100%);
+    /* Fix bottom rounding */
+    clip-path: inset(0 0 0 0 round 24px);
+    -webkit-clip-path: inset(0 0 0 0 round 24px);
+}
+
+#app.expanded {
+    width: 238px;  /* Expanded to fit all buttons: 6px + 36px + (5 × 32px) + (5 × 6px) + 6px */
+    height: 48px;
+    align-items: center;
+}
+
+/* Container for buttons */
+.button-container {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    flex-shrink: 0;
+}
+
+#recordButton {
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    background-color: #3b82f6;
+    border: none;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0;
+    margin: 0;
+    transition: all 0.2s ease;
+    box-shadow: 0 2px 6px rgba(59, 130, 246, 0.3);
+    flex-shrink: 0;
+}
+
+#recordButton:hover {
+    background-color: #2563eb;
+    transform: scale(1.05);
+}
+
+#recordButton.recording {
+    background-color: #ef4444;
+    box-shadow: 0 2px 6px rgba(239, 68, 68, 0.3);
+    animation: pulse 2s infinite;
+}
+
+#micIcon {
+    width: 20px;
+    height: 20px;
+    fill: #ffffff;
+    transition: all 0.2s ease;
+}
+
+/* Action buttons */
+.action-button {
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    border: none;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background-color: #f3f4f6;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    color: #6b7280;
+    flex-shrink: 0;
+    padding: 0;
+}
+
+.action-button:hover {
+    background-color: #e5e7eb;
+    transform: scale(1.05);
+}
+
+.action-button svg {
+    width: 16px;
+    height: 16px;
+    fill: currentColor;
+}
+
+/* Icon buttons */
+.icon-button {
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    border: none;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background-color: #f3f4f6;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    color: #6b7280;
+    flex-shrink: 0;
+    padding: 0;
+}
+
+.icon-button:hover {
+    background-color: #e5e7eb;
+    transform: scale(1.05);
+}
+
+.icon-button svg {
+    width: 16px;
+    height: 16px;
+    fill: currentColor;
+}
+
+/* Expanded content */
+#expandedContent {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    transition: all 0.3s ease;
+    opacity: 1;
+}
+
+#expandedContent.hidden {
+    display: none;
+    opacity: 0;
+}
+
+#expandedContent textarea {
+    position: absolute;
+    left: -9999px;
+    opacity: 0;
+}
+
+/* Success/error states */
+.text-green-600 {
+    color: #059669 !important;
+}
+
+.text-red-600 {
+    color: #dc2626 !important;
+}
+
+/* Animation for recording state */
+@keyframes pulse {
+    0% {
+        box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.4);
+    }
+    70% {
+        box-shadow: 0 0 0 10px rgba(239, 68, 68, 0);
+    }
+    100% {
+        box-shadow: 0 0 0 0 rgba(239, 68, 68, 0);
+    }
 }
 
 /* Ensure all content is visible */
@@ -26,73 +191,45 @@
     -webkit-app-region: no-drag;
 }
 
-/* Button animations */
-button {
-    transition: all 0.2s ease-in-out;
+/* Utility classes */
+.hidden {
+    display: none !important;
 }
 
-button:active {
-    transform: scale(0.95);
+.flex {
+    display: flex;
 }
 
-#recordButton:active {
-    transform: scale(0.9);
+.flex-col {
+    flex-direction: column;
 }
 
-/* Hover effects */
-.hover-scale {
-    transition: transform 0.2s ease-in-out;
+.items-center {
+    align-items: center;
 }
 
-.hover-scale:hover {
-    transform: scale(1.05);
+.gap-2 {
+    gap: 0.5rem;
 }
 
-/* Custom scrollbar */
-::-webkit-scrollbar {
-    width: 8px;
+.w-full {
+    width: 100%;
 }
 
-::-webkit-scrollbar-track {
-    background: #f1f1f1;
-    border-radius: 4px;
+.mt-2 {
+    margin-top: 0.5rem;
 }
 
-::-webkit-scrollbar-thumb {
-    background: #888;
-    border-radius: 4px;
+.text-sm {
+    font-size: 0.875rem;
 }
 
-::-webkit-scrollbar-thumb:hover {
-    background: #666;
+.rounded {
+    border-radius: 0.25rem;
 }
 
-/* Animations */
-@keyframes fadeIn {
-    from {
-        opacity: 0;
-        transform: translateY(-10px);
-    }
-    to {
-        opacity: 1;
-        transform: translateY(0);
-    }
-}
-
-@keyframes pulse {
-    0% {
-        box-shadow: 0 0 0 0 rgba(37, 99, 235, 0.4);
-    }
-    70% {
-        box-shadow: 0 0 0 10px rgba(37, 99, 235, 0);
-    }
-    100% {
-        box-shadow: 0 0 0 0 rgba(37, 99, 235, 0);
-    }
-}
-
-.recording {
-    animation: pulse 2s infinite;
+.resize-none {
+    resize: none;
 }
 
 /* Windows-style transitions */
